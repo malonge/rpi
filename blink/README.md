@@ -1,9 +1,10 @@
 # blink
-Blink an LED light.
+Blink an LED light with a Raspbery Pi.
 
 ```bash
-sudo python3 blink.py -s 0.1
+docker build -t blink .
+
+# Control the interval length (seconds) with -s
+docker run --privileged -it --rm blink python blink.py -s 0.5
 ```
 
-## TODO
-- Containerize with docker
