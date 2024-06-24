@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+  weather_app:
+    build:
+      context: ./weather
+    environment:
+      - AIRNOW_KEY=$AIRNOW_KEY
