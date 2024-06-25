@@ -1,28 +1,70 @@
+#!/usr/env/bin python
+
+"""
+A simple example of displaying a message to
+an LCD screen.
+
+I got the following LCD screens from Amazon:
+https://www.amazon.com/dp/B0C1G9GBRZ?ref=ppx_yo2ov_dt_b_product_details&th=1
+"""
+
 import time
+
 import smbus2
 from RPLCD.i2c import CharLCD
 
-# The I2C address of the LCD
+# Configuration
 I2C_ADDR = 0x27
-
-# Define the LCD parameters
 LCD_COLUMNS = 20
 LCD_ROWS = 4
 
-# Initialize the I2C bus and LCD
 lcd = CharLCD(i2c_expander='PCF8574', address=I2C_ADDR, port=1,
               cols=LCD_COLUMNS, rows=LCD_ROWS, charmap='A02',
               auto_linebreaks=True)
 
-# Clear the LCD screen
-lcd.clear()
 
-# Display the message
-lcd.write_string("Hello, World!")
+def format_message(raw_message: str, num_rows: int = 4, num_cols: int = 20) -> str:
+    """
+    Convert text to matrix format ideal for displaying
+    on an LCD screen.
 
-# Keep the message on the screen for 10 seconds
-time.sleep(1000)
+    Args:
+        raw_message (str): The message without formatting. Use newline
+                           characters for new lines on the LCD.
+        num_rows (int): The number of rows available for the screen.
+        num_cols (int): The number of columns available for the screen.
 
-# Optionally clear the display before exiting
-lcd.clear()
+    Returns:
+        str: A single string replacing new lines with the number of spaces
+             needed to get to the end of the LCD row.
+    """
+    data = [[" "] * num_cols for _ in range(num_rows)]
+    lines = raw_message.split("\n")
+
+    if len(lines) > num_rows:
+        raise ValueError(f"Can display up to {num_rows} lines. Got {len(lines)}")
+
+    for i, line in enumerate(lines):
+        if len(line) > num_cols:
+            raise ValueError(f"Can display up to {num_cols} characters per line. Got {len(line)} on line {i}")
+
+        # Fill the row with characters from the line
+        for j, char in enumerate(line):
+            data[i][j] = char
+
+    formatted_message = "".join("".join(row) for row in data)
+    return formatted_message
+
+
+def main():
+    message = "I love Sathvika\nAnd Tupper!\nAnd Billy!\nHi Malia!"
+    lcd.clear()
+    lcd.write_string(format_message(message))
+
+    time.sleep(1000)
+    lcd.clear()
+
+
+if __name__ == "__main__":
+    main()
 
