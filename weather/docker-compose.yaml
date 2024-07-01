@@ -1,8 +1,13 @@
 version: '3.8'
 
 services:
-  weather_app:
+  weather:
     build:
       context: ./weather
     environment:
       - AIRNOW_KEY=$AIRNOW_KEY
+
+  display:
+    build:
+      context: ./display
+    privileged: true
