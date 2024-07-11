@@ -6,9 +6,21 @@ and displays it on an LCD.
 """
 
 import time
+import json
+import socket
+import logging
 
 import smbus2
 from RPLCD.i2c import CharLCD
+
+
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(message)s',
+    level=logging.INFO
+)
+
+logger = logging.getLogger('display service')
+
 
 # LCD configuration
 I2C_ADDR = 0x27
@@ -53,14 +65,46 @@ def format_message(raw_message: str, num_rows: int = 4, num_cols: int = 20) -> s
     return formatted_message
 
 
-def main():
-    while True:
-        message = "temp: XZY F\nrel humidity: XZY\nAQI: XYZ"
-        lcd.clear()
-        lcd.write_string(format_message(message))
+def receive_weather_data(host: str, port: int) -> None:
+    """
+    Receives weather data from a TCP connection,
+    sends a confirmation, and displays the data on
+    the LCD screen.
 
-        time.sleep(10)
-        lcd.clear()
+    Args:
+        host (str): The hostname or IP address to bind to.
+        port (int): The port number to bind to.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, port))
+        sock.listen(1)
+        logger.info(f"Listening on {host}:{port}")
+
+        while True:
+            conn, addr = sock.accept()
+            with conn:
+                logger.info(f"Connected by {addr}")
+                while True:
+                    data = conn.recv(1024)
+                    if not data:
+                        break
+
+                    weather_data = json.loads(data.decode('utf-8'))
+                    logger.info(f"Recieved data: {weather_data}")
+
+                    lcd.clear()
+                    lcd.write_string(
+                        format_message(f"Temp: {weather_data['temperature']}")
+                    )
+
+
+                    conn.sendall(b"Data received")
+
+
+def main():
+    host = '0.0.0.0'
+    port = 55000
+    receive_weather_data(host, port)
 
 
 if __name__ == "__main__":
