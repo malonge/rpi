@@ -132,6 +132,7 @@ def send_weather_data_persistently(host, port, interval):
 
                 data = {
                     "temperature": temperature,
+                    "temperature_unit": "C",
                     "humidity": humidity,
                     "description": description,
                     "aqi": aqi,
@@ -163,7 +164,7 @@ def main():
         raise RuntimeError("Missing AirNow API Key in AIRNOW_KEY env variable")
 
 
-    send_weather_data_persistently('display', 55000, interval=10)
+    send_weather_data_persistently('display', 55000, interval=300)
 
 
 if __name__ == "__main__":

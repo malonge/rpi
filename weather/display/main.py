@@ -6,9 +6,11 @@ and displays it on an LCD.
 """
 
 import time
+import pytz
 import json
 import socket
 import logging
+from datetime import datetime
 
 import smbus2
 from RPLCD.i2c import CharLCD
@@ -92,11 +94,18 @@ def receive_weather_data(host: str, port: int) -> None:
                     weather_data = json.loads(data.decode('utf-8'))
                     logger.info(f"Recieved data: {weather_data}")
 
+                    temp = weather_data["temperature"]
+                    temp_unit = weather_data["temperature_unit"]
+                    now = datetime.now()
+                    la_time = datetime.now(
+                        pytz.timezone('America/Los_Angeles')
+                    ).strftime("%H:%M:%S")
+
+
                     lcd.clear()
                     lcd.write_string(
-                        format_message(f"Temp: {weather_data['temperature']}")
+                            format_message(f"Temp: {temp}o {temp_unit}\nUpdated: {la_time}")
                     )
-
 
                     conn.sendall(b"Data received")
 
