@@ -26,33 +26,16 @@ logging.basicConfig(
 logger = logging.getLogger('weather service')
 
 
-def get_nws_current_weather_data(
-    latitude: float,
-    longitude: float
-) -> Tuple[float, float, str]:
+def get_nws_current_weather_data() -> Tuple[float, float, str]:
     """
     Get current weather data from the national weather
-    service given coordinates.
+    service Downtown Los Angeles station (FHMC1).
 
-    Args:
-        latitude (float): Latitude for the location.
-        longitude (float): Longitude for the location.
     Returns:
         Tuple[float, float, str]: A tuple of temperature, humidity, and 
             a description of the weather.
     """
-    points_url = f"https://api.weather.gov/points/{latitude},{longitude}"
-    
-    # Stations
-    points_response = requests.get(points_url)
-    points_data = points_response.json()
-    observation_stations_url = points_data['properties']['observationStations']
-    
-    stations_response = requests.get(observation_stations_url)
-    stations_data = stations_response.json()
-    observation_url = stations_data['features'][0]['id'] + "/observations/latest"
-    
-    # Get the latest observation data
+    observation_url = "https://api.weather.gov/stations/FHMC1/observations/latest"
     observation_response = requests.get(observation_url)
     observation_data = observation_response.json()
     
@@ -126,9 +109,8 @@ def send_weather_data_persistently(host, port, interval):
                 if not airnow_api_key:
                     raise RuntimeError("Missing AirNow API Key in AIRNOW_KEY env variable")
 
-                latitude, longitude = "34.079225", "-118.355067"
-                temperature, humidity, description = get_nws_current_weather_data(latitude, longitude)
-                aqi, category = get_airnow_aqi(airnow_api_key, latitude, longitude)
+                temperature, humidity, description = get_nws_current_weather_data()
+                aqi, category = get_airnow_aqi(airnow_api_key, "34", "-118")
 
                 data = {
                     "temperature": temperature,
@@ -157,8 +139,6 @@ def send_weather_data_persistently(host, port, interval):
 
 
 def main():
-    latitude = "34.0928"
-    longitude = "-118.3287"
     airnow_api_key = os.environ.get("AIRNOW_KEY", "")
     if not airnow_api_key:
         raise RuntimeError("Missing AirNow API Key in AIRNOW_KEY env variable")
