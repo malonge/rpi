@@ -5,7 +5,8 @@ Collects weather data from public APIs and
 sends it to other services in the network.
 
 The service currently gets basic data like
-temperature, humidity, and AQI.
+temperature and humidity from the National
+Weather Service API.
 """
 
 import os
@@ -24,6 +25,47 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger('weather service')
+
+
+class TCPConnection:
+    """Manages a persistent TCP connection.
+
+    Attributes:
+        host (str): The host address to connect to.
+        port (int): The port number to connect to.
+        sock (socket.socket): The TCP socket object.
+    """
+    
+    def __init__(self, host: str, port: int) -> None:
+        """Initializes the TCPConnection with the specified host and port.
+
+        Args:
+            host (str): The host address to connect to.
+            port (int): The port number to connect to.
+        """
+        self.host = host
+        self.port = port
+        self.sock: socket.socket | None = None
+    
+    def connect(self) -> None:
+        """Establishes the TCP connection."""
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((self.host, self.port))
+    
+    def send_data(self, data: str) -> None:
+        """Sends data over the established TCP connection.
+
+        Args:
+            data (str): The data to send.
+        """
+        if self.sock:
+            self.sock.sendall(data.encode('utf-8'))
+    
+    def close(self) -> None:
+        """Closes the TCP connection."""
+        if self.sock:
+            self.sock.close()
+            self.sock = None
 
 
 def get_nws_current_weather_data() -> Tuple[float, float, str]:
@@ -46,106 +88,29 @@ def get_nws_current_weather_data() -> Tuple[float, float, str]:
     return temperature, humidity, description
 
 
-def get_airnow_aqi(
-    api_key: str,
-    latitude: float, 
-    longitude: float
-) -> Tuple[int, str]:
-    """
-    Fetches the current Air Quality Index (AQI) and category
-    from the AirNow API for the specified latitude and longitude.
-
-    Args:
-        api_key (str): API key for the AirNow API.
-        latitude (float): Latitude for the location.
-        longitude (float): Longitude for the location.
-
-    Returns:
-        Tuple[int, str]: AQI value and category name.
-
-    Raises:
-        requests.exceptions.HTTPError: If the API request fails.
-        ValueError: If the response data is empty or malformed.
-    """
-    url = "https://www.airnowapi.org/aq/observation/latLong/current"
-    headers = {'Accept': 'application/json'}
-    params = {
-        'format': 'application/json',
-        'latitude': latitude,
-        'longitude': longitude,
-        'distance': 25,
-        'API_KEY': api_key
-    }
-    
-    response = requests.get(url, headers=headers, params=params)
-    response.raise_for_status()
-    data = response.json()
-    
-    if data:
-        aqi = data[0]['AQI']
-        category = data[0]['Category']['Name']
-        return aqi, category
-
-    raise ValueError("Invalid response data")
-
-
-def send_weather_data_persistently(host, port, interval):
-    """
-    Send weather data to the display service at regular intervals over a persistent TCP connection.
-
-    :param host: The hostname of the display service.
-    :param port: The port number of the display service.
-    :param interval: The interval (in seconds) at which to send the data.
-    """
-    while True:
-        try:
-            # Create a TCP/IP socket
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((host, port))
-
-            while True:
-                # Generate and serialize the weather data
-                airnow_api_key = os.environ.get("AIRNOW_KEY", "")
-                if not airnow_api_key:
-                    raise RuntimeError("Missing AirNow API Key in AIRNOW_KEY env variable")
-
-                temperature, humidity, description = get_nws_current_weather_data()
-                aqi, category = get_airnow_aqi(airnow_api_key, "34", "-118")
-
-                data = {
-                    "temperature": temperature,
-                    "temperature_unit": "C",
-                    "humidity": humidity,
-                    "description": description,
-                    "aqi": aqi,
-                    "category": category
-                }
-                weather_json = json.dumps(data)
-
-                # Send data
-                sock.sendall(weather_json.encode('utf-8'))
-                response = sock.recv(1024)
-                logger.info(f"Received: {response.decode('utf-8')}")
-                
-                time.sleep(interval)
-
-        except (socket.error, KeyboardInterrupt) as e:
-            print(f"Connection error: {e}, retrying...")
-            time.sleep(5)  # Wait before attempting to reconnect
-            continue
-
-        finally:
-            sock.close()
-
-
 def main():
-    airnow_api_key = os.environ.get("AIRNOW_KEY", "")
-    if not airnow_api_key:
-        raise RuntimeError("Missing AirNow API Key in AIRNOW_KEY env variable")
+    host = 'display'
+    port = 55000
+    interval = 300
 
+    # Connect to the display service
+    connection = TCPConnection(host, port)
+    connection.connect()
 
-    send_weather_data_persistently('display', 55000, interval=300)
+    while True:
+        temperature, humidity, description = get_nws_current_weather_data()
+        data = {
+            "temperature": temperature,
+            "temperature_unit": "C",
+            "humidity": humidity,
+            "description": description
+        }
+        weather_json = json.dumps(data) 
+        connection.send_data(weather_json)
 
+        time.sleep(interval)
+
+    connection.close()
 
 if __name__ == "__main__":
     main()
